@@ -1,0 +1,9 @@
+{
+  "idea": "get fit",
+  "category": "health",
+  "metric": { "mode": "quantity", "target": "5", "unit": "km", "start": "1" },
+  "confidence": 7,
+  "achievableNote": "I can run 1km today and have 3 free mornings a week",
+  "relevant": "I want more energy for my kids",
+  "dueDate": "2026-12-31"
+}

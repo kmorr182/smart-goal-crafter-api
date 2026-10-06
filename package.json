@@ -1,0 +1,17 @@
+{
+  "name": "smart-goal-crafter-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env --watch server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Kmorr182",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
+  }
+}
