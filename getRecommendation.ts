@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { GoalDraft, GoalRecommendation } from './types.ts'
 
 // Reads ANTHROPIC_API_KEY from process.env automatically.
 // timeout is in milliseconds: a user is waiting on a button, so give up after 30s.
@@ -34,7 +35,7 @@ const RESPONSE_SCHEMA = {
   additionalProperties: false,
 }
 
-export async function getRecommendation(draft) {
+export async function getRecommendation(draft: GoalDraft): Promise<GoalRecommendation> {
   const response = await client.beta.messages.create({
     model: 'claude-opus-5-5',
     max_tokens: 16000,
