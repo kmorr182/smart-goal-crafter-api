@@ -9,8 +9,8 @@ const SYSTEM_PROMPT = `You are a goal-setting coach for Smart Goal Crafter.
 You receive a draft SMART goal as JSON. Return:
 - polishedSentence: one clear, motivating sentence stating the goal, in first person,
   including the measurable target and the due date.
-- supportingGoals: 2 or 3 smaller goals that would help achieve it, each with a short title
-  and a one-sentence reason.`
+- supportingGoals: 3 smaller goals that would help achieve it, each with a short title
+  and a one-sentence reason. Be detailed as possible with measurable action items.`
 
 // JSON Schema describing the exact shape we want back. Matches GoalRecommendation in the
 // frontend's src/types/recommendation.ts.
@@ -36,8 +36,8 @@ const RESPONSE_SCHEMA = {
 }
 
 export async function getRecommendation(draft: GoalDraft): Promise<GoalRecommendation> {
-  const response = await client.beta.messages.create({
-    model: 'claude-opus-5-5',
+  const response = await client.messages.create({
+    model: 'claude-haiku-5-5',
     max_tokens: 16000,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: JSON.stringify(draft, null, 2) }],
@@ -45,9 +45,6 @@ export async function getRecommendation(draft: GoalDraft): Promise<GoalRecommend
       effort: 'low', // a short, simple task: fast and cheap is right here
       format: { type: 'json_schema', schema: RESPONSE_SCHEMA },
     },
-    // If Claude's safety checks decline a request, retry it on a fallback model automatically.
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
   })
 
   if (response.stop_reason === 'refusal') {
