@@ -2,48 +2,71 @@ import http from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { validateDraft } from './validation.ts';
 import { getRecommendation } from './getRecommendation.ts';
+import { createRateLimiter } from './rateLimit.ts';
+
+// Per person: stops one client from hammering the endpoint.
+const perClientLimit = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 20 }) // 20 per hour
+// Everyone combined: a ceiling on Claude calls per day, whoever is calling.
+const globalLimit = createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 1000 }) // 1000 per day
 
 const PORT = process.env.PORT ?? 3000
+const MAX_BODY_BYTES = 10_000 // a real GoalDraft is well under 2 KB
+
+export class PayloadTooLargeError extends Error {}
 
 async function readBody(req: IncomingMessage): Promise<string> {
-  let body = ''
+  let body = '';
+  let bytes = 0;
   for await (const chunk of req) {
-    body += chunk
+    bytes += chunk.length; // chunk is a Buffer, so .length is bytes
+    if (bytes > MAX_BODY_BYTES) {
+      throw new PayloadTooLargeError();
+    }
+    body += chunk;
   }
-  return body
+  return body;
+}
+
+function getClientIp(req: IncomingMessage): string {
+  if (process.env.TRUST_PROXY === 'true') {
+    // X-Forwarded-For is "client, proxy1, proxy2, ...". Clients can put fake values at the
+    // start, so use the entry your host's proxy added: the last one.
+    const header = req.headers['x-forwarded-for'];
+    const value = Array.isArray(header) ? header.at(-1) : header;
+    const last = value?.split(',').at(-1)?.trim();
+    if (last) return last;
+  }
+  return req.socket.remoteAddress ?? 'unknown';
 }
 
 export function sendJson(res: ServerResponse, status: number, data: unknown): void{
-    res.writeHead(status, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(data))
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
   }
 
   const server = http.createServer(async (req, res) => {
-    console.log(`${req.method} ${req.url}`)
-
-    if (req.method === 'GET' && req.url === '/health') {
+      if (req.method === 'GET' && req.url === '/health') {
       sendJson(res, 200, {ok: true});
       return
     }
-    if (req.url === '/wait') {
-      setTimeout(() => res.end('waited 5s, politely\n'), 5000)
-      return
-    }
-
-    if (req.url === '/block') {
-      const until = Date.now() + 5000
-      while (Date.now() < until) {} // busy-loop: hogs the only thread
-      res.end('blocked 5s, rudely\n')
-      return
-    }
-
+    
     if (req.method === 'POST' && req.url === '/api/recommendations') {
-      let parsed: unknown;
+      const clientLimit = perClientLimit(getClientIp(req))
+      if (!clientLimit.allowed) {
+        res.setHeader('Retry-After', String(clientLimit.retryAfterSeconds))
+        sendJson(res, 429, { error: 'Too many requests. Please try again later.' })
+        return
+      }
 
+      let parsed: unknown;
       try {
         parsed = JSON.parse(await readBody(req))
-      } catch {
-        sendJson(res, 400, {error: 'Body must be valid JSON'})
+      } catch(err) {
+        if (err instanceof PayloadTooLargeError){
+          sendJson(res, 413, {error: 'Request body is too large.'})
+        } else { 
+          sendJson(res, 400, {error: 'Body must be valid JSON.'})
+        }
         return
       }
 
@@ -52,14 +75,23 @@ export function sendJson(res: ServerResponse, status: number, data: unknown): vo
         sendJson(res, 400, { error: result.error });
         return
       }
+
+      const dailyLimit = globalLimit('global')
+      if (!dailyLimit.allowed) {
+        res.setHeader('Retry-After', String(dailyLimit.retryAfterSeconds))
+        sendJson(res, 503, { error: 'Recommendations are busy right now. Please try again later.' })
+        return
+      }
+
       // Call API: 
-          try{
-            const recommendation = await getRecommendation(result.draft);
-            sendJson(res, 200, recommendation)
-          }catch(err){
-            sendJson(res, 502, { error: 'Could not get a recommendation right now' })
-          }
-          return;
+      try{
+        const recommendation = await getRecommendation(result.draft);
+        sendJson(res, 200, recommendation)
+      }catch(err){
+        console.error('Claude request failed:', err)
+        sendJson(res, 502, { error: 'Could not get a recommendation right now' })
+      }
+      return;
   }
   sendJson(res, 404, { error: 'Not found' })
 });
