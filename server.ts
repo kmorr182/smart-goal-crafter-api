@@ -14,7 +14,7 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN
 const PORT = process.env.PORT ?? 3000
 const MAX_BODY_BYTES = 10_000 // a real GoalDraft is well under 2 KB
 
-export class PayloadTooLargeError extends Error {}
+class PayloadTooLargeError extends Error {}
 
 async function readBody(req: IncomingMessage): Promise<string> {
   let body = '';
@@ -41,7 +41,7 @@ function getClientIp(req: IncomingMessage): string {
   return req.socket.remoteAddress ?? 'unknown';
 }
 
-export function sendJson(res: ServerResponse, status: number, data: unknown): void{
+function sendJson(res: ServerResponse, status: number, data: unknown): void{
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
   }
