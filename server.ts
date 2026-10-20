@@ -9,6 +9,8 @@ const perClientLimit = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 20 }) 
 // Everyone combined: a ceiling on Claude calls per day, whoever is calling.
 const globalLimit = createRateLimiter({ windowMs: 24 * 60 * 60 * 1000, max: 1000 }) // 1000 per day
 
+// The site allowed to call this API from a browser, e.g. https://smartgoalcrafter.com
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN
 const PORT = process.env.PORT ?? 3000
 const MAX_BODY_BYTES = 10_000 // a real GoalDraft is well under 2 KB
 
@@ -44,8 +46,25 @@ export function sendJson(res: ServerResponse, status: number, data: unknown): vo
     res.end(JSON.stringify(data));
   }
 
+
   const server = http.createServer(async (req, res) => {
-      if (req.method === 'GET' && req.url === '/health') {
+    // CORS: tell browsers our own frontend may call this API.
+    if (ALLOWED_ORIGIN && req.headers.origin === ALLOWED_ORIGIN) {
+      res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
+      res.setHeader('Vary', 'Origin')
+    }
+
+    // Preflight: the browser asking permission before the real POST.
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Methods', 'POST')
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+      res.setHeader('Access-Control-Max-Age', '86400') // browsers can cache this answer for a day
+      res.writeHead(204)
+      res.end()
+      return
+    }
+
+    if (req.method === 'GET' && req.url === '/health') {
       sendJson(res, 200, {ok: true});
       return
     }
