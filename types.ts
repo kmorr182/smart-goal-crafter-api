@@ -25,3 +25,19 @@ export interface GoalRecommendation {
   polishedSentence: string
   supportingGoals: SupportingGoalIdea[]
 }
+
+export interface BingoSquare {
+  position: number
+  label: string
+  completed: boolean
+}
+
+export const FREE_POSITION = 12
+export const BOARD_SIZE = 25
+
+export interface BingoCard {
+  id: string
+  hasFreeSpace: boolean
+  squares: BingoSquare[]
+  createdAt: string
+}

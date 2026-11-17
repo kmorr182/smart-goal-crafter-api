@@ -1,4 +1,5 @@
-import type { GoalDraft } from './types.ts'
+import { BOARD_SIZE,} from './types.ts'
+import type { BingoCard, GoalDraft } from './types.ts'
 
 export type ValidationResult =
   | { ok: true; draft: GoalDraft }
@@ -47,4 +48,46 @@ export function validateDraft(input: unknown): ValidationResult {
     }
 
   return { ok: true, draft: input as GoalDraft }
+}
+
+export type BingoCardValidationResult =
+  | { ok: true; card: BingoCard }
+  | { ok: false; error: string }
+
+export function validateBingoCard(input: unknown): BingoCardValidationResult {
+  const card = input as Record<string, unknown>
+
+  if (card === null || typeof card !== 'object') {
+    return { ok: false, error: 'Body must be a JSON object' }
+  }
+  if (typeof card.id !== 'string' || card.id.trim() === '') {
+    return { ok: false, error: 'id is required' }
+  }
+  if (typeof card.hasFreeSpace !== 'boolean') {
+    return { ok: false, error: 'hasFreeSpace must be a boolean' }
+  }
+  if (typeof card.createdAt !== 'string' || card.createdAt.trim() === '') {
+    return { ok: false, error: 'createdAt is required' }
+  }
+  if (!Array.isArray(card.squares) || card.squares.length !== BOARD_SIZE) {
+    return { ok: false, error: `squares must be an array of ${BOARD_SIZE} items` }
+  }
+
+  for (const square of card.squares) {
+    const sq = square as Record<string, unknown>
+    if (sq === null || typeof sq !== 'object') {
+      return { ok: false, error: 'Each square must be an object' }
+    }
+    if (typeof sq.position !== 'number' || !Number.isInteger(sq.position) || sq.position < 0 || sq.position >= BOARD_SIZE) {
+      return { ok: false, error: `square.position must be an integer between 0 and ${BOARD_SIZE - 1}` }
+    }
+    if (typeof sq.label !== 'string' || sq.label.length > 280) {
+      return { ok: false, error: 'square.label must be a string of 280 characters or fewer' }
+    }
+    if (typeof sq.completed !== 'boolean') {
+      return { ok: false, error: 'square.completed must be a boolean' }
+    }
+  }
+
+  return { ok: true, card: input as BingoCard }
 }
