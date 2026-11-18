@@ -1,5 +1,13 @@
 // Mirrors smart-goal-crafter's src/types/goal.ts and recommendation.ts. Keep them in sync.
-export type CategoryKey = 'health' | 'career' | 'finance' | 'learning' | 'relationships' | 'personal'
+export type CategoryKey =
+  | 'health'
+  | 'career'
+  | 'finance'
+  | 'learning'
+  | 'relationships'
+  | 'personal'
+  | 'spiritual'
+  | 'uncategorized'
 
 export type GoalMetric =
   | { mode: 'quantity'; target: string; unit: string; start: string }
@@ -30,6 +38,7 @@ export interface BingoSquare {
   position: number
   label: string
   completed: boolean
+  categoryOverride?: CategoryKey | null
 }
 
 export const FREE_POSITION = 12
