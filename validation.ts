@@ -1,5 +1,8 @@
 import { BOARD_SIZE,} from './types.ts'
-import type { BingoCard, GoalDraft } from './types.ts'
+import type { BingoCard, CategoryKey, GoalDraft } from './types.ts'
+
+// Mirrors smart-goal-crafter UI's src/data/categories.ts CATEGORIES keys. Keep them in sync.
+const CATEGORY_KEYS: CategoryKey[] = ['health', 'career', 'finance', 'learning', 'relationships', 'personal', 'spiritual', 'uncategorized']
 
 export type ValidationResult =
   | { ok: true; draft: GoalDraft }
@@ -42,9 +45,8 @@ export function validateDraft(input: unknown): ValidationResult {
       return {ok: false, error: 'Input too long, please shorten to under 300 characters.'}
     }
 
-    const categories = ['health', 'career', 'finance', 'learning', 'relationships', 'personal'];
-    if(typeof draftGoal.category !== 'string' || !categories.includes(draftGoal.category)){
-      return { ok: false, error:  `Category must be one of the six allowed values, ${categories.join(', ')}` }
+    if(typeof draftGoal.category !== 'string' || !CATEGORY_KEYS.includes(draftGoal.category as CategoryKey)){
+      return { ok: false, error:  `Category must be one of the allowed values: ${CATEGORY_KEYS.join(', ')}` }
     }
 
   return { ok: true, draft: input as GoalDraft }
@@ -86,6 +88,13 @@ export function validateBingoCard(input: unknown): BingoCardValidationResult {
     }
     if (typeof sq.completed !== 'boolean') {
       return { ok: false, error: 'square.completed must be a boolean' }
+    }
+    if (
+      sq.categoryOverride !== undefined &&
+      sq.categoryOverride !== null &&
+      (typeof sq.categoryOverride !== 'string' || !CATEGORY_KEYS.includes(sq.categoryOverride as CategoryKey))
+    ) {
+      return { ok: false, error: `square.categoryOverride must be one of ${CATEGORY_KEYS.join(', ')}, or null` }
     }
   }
 
